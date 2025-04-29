@@ -24,9 +24,33 @@ provider "aws" {
 
 provider "vault" {
   address = "http://127.0.0.1:8200"
-  token   = "root"
 }
 
-module "vm_linux" {
-  source = "./modules/vm_linux" # répertoire contenant le main.tf pour création de l’instance EC2
+module "ec2" {
+  source = "./modules/ec2" # répertoire contenant le main.tf pour création de l’instance EC2
+  security_group_id = module.sg.aws_security_group_id
+  network_interface_id = module.eip.aws_eni_id 
+}
+
+module "vpc" {
+  source = "./modules/vpc" # répertoire contenant le main.tf pour création des instances VPC/Gateway/Route/Subnet
+}
+
+module "eip" {
+  source = "./modules/eip" # répertoire contenant le main.tf pour création de l’instance EIP et ENI
+  subnet_id  = module.vpc.aws_subnet_id
+  security_group_id = module.sg.aws_security_group_id
+}
+
+module "sg" {
+  source = "./modules/sg" # répertoire contenant le main.tf pour création de l’instance SecurityGroup
+  vpc_id  = module.vpc.aws_vpc_id
+}
+
+
+resource "null_resource" "export_public_ip" {
+  depends_on = [module.eip]
+  provisioner "local-exec" {
+    command = "echo ${module.eip.public_ip} > public_ip.txt"
+  }
 }
